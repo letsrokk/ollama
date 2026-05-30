@@ -2,7 +2,4 @@
 .env.*
 !.env.example
 
-.git-local/
-
 ollama-data/
-.ollama-data/
