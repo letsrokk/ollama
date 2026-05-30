@@ -3,7 +3,6 @@ services:
   ollama:
     image: ollama/ollama:0.24.0
     container_name: ollama
-    network_mode: bridge
     ports:
       - "11434:11434"
     volumes:
@@ -43,4 +42,5 @@ services:
 
   valkey:
     image: valkey/valkey:latest
+    container_name: valkey
     restart: unless-stopped
