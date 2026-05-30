@@ -8,9 +8,6 @@ use_default_settings:
       # news
       - google news
       - bing news
-      # facts
-      - wikipedia
-      - wikidata
       # local businesses
       - openstreetmap
 
@@ -42,12 +39,6 @@ outgoing:
 
 valkey:
   url: valkey://valkey:6379/0
-
-engines:
-  - name: wikidata
-    disabled: false
-    weight: 0.5
-    timeout: 20.0
 
 plugins:
   searx.plugins.tracker_url_remover.SXNGPlugin: 
