@@ -1,0 +1,45 @@
+services:
+
+  ollama:
+    image: ollama/ollama:0.24.0
+    container_name: ollama
+    network_mode: bridge
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./ollama-data:/root/.ollama
+    environment:
+      OLLAMA_HOST: "0.0.0.0:11434"
+      OLLAMA_API_KEY: "${OLLAMA_API_KEY}"
+      OLLAMA_CONTEXT_LENGTH: "32768"
+      OLLAMA_KV_CACHE_TYPE: "q4_0"
+      OLLAMA_MAX_LOADED_MODELS: "5"
+      OLLAMA_NUM_PARALLEL: "2"
+      OLLAMA_KEEP_ALIVE: "-1"
+      OLLAMA_FLASH_ATTENTION: "1"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  searxng:
+    image: searxng/searxng:2026.5.29-780ee3256
+    container_name: searxng
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    environment:
+      SEARXNG_BASE_URL: http://localhost:8080/
+      SEARXNG_SECRET: "${SEARXNG_SECRET}"
+    depends_on:
+      - valkey
+
+  valkey:
+    image: valkey/valkey:latest
+    restart: unless-stopped

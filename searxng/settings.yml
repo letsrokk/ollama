@@ -1,0 +1,72 @@
+use_default_settings:
+  engines:
+    keep_only:
+      # general search
+      - google
+      - bing
+      - duckduckgo
+      # news
+      - google news
+      - bing news
+      # facts
+      - wikipedia
+      - wikidata
+      # local businesses
+      - openstreetmap
+
+general:
+  debug: false
+  instance_name: "ollama-searxng"
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: "en"
+  formats:
+    - json
+
+server:
+  bind_address: "0.0.0.0"
+  port: 8080
+  secret_key: "ultrasecretkey"
+  limiter: false
+  image_proxy: false
+
+outgoing:
+  request_timeout: 8.0
+  max_request_timeout: 15.0
+  pool_connections: 100
+  pool_maxsize: 20
+  enable_http2: true
+  retries: 1
+
+valkey:
+  url: valkey://valkey:6379/0
+
+engines:
+  - name: wikidata
+    disabled: false
+    weight: 0.5
+    timeout: 20.0
+
+plugins:
+  searx.plugins.tracker_url_remover.SXNGPlugin: 
+    active: true
+  searx.plugins.hostnames.SXNGPlugin:
+    active: true
+  searx.plugins.oa_doi_rewrite.SXNGPlugin:
+    active: true
+
+hostnames:
+  remove:
+    - '(.*\.)?pinterest\.com$'
+    - '(.*\.)?facebook\.com$'
+    - '(.*\.)?instagram\.com$'
+  high_priority:
+    - '(.*\.)?wikipedia\.org$'
+    - '(.*\.)?reuters\.com$'
+    - '(.*\.)?arxiv\.org$'
+  low_priority:
+    - '(.*\.)?quora\.com$'
+    - '(.*\.)?medium\.com$'
+
