@@ -14,3 +14,5 @@ gemma4:26b
 gemma4:31b
 
 llama3.1:8b
+
+nomic-embed-text
