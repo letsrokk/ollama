@@ -1,0 +1,11 @@
+deepseek-r1:8b
+deepseek-r1:32b
+
+qwen3.5:9b-mlx
+qwen3.8:27b-mlx
+
+gemma4:12b-mlx
+gemma4:26b-mlx
+
+qwen3-embedding:0.6b
+qwen3-embedding:8b

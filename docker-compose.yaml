@@ -1,29 +1,5 @@
 services:
 
-  ollama:
-    image: ollama/ollama:0.24.0
-    container_name: ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ./ollama-data:/root/.ollama
-    environment:
-      OLLAMA_HOST: "0.0.0.0:11434"
-      OLLAMA_CONTEXT_LENGTH: "8192"
-      OLLAMA_KV_CACHE_TYPE: "q4_0"
-      OLLAMA_MAX_LOADED_MODELS: "3"
-      OLLAMA_NUM_PARALLELL: "1"
-      OLLAMA_KEEP_ALIVE: "5m"
-      OLLAMA_FLASH_ATTENTION: "1"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    restart: unless-stopped
-
   open-webui:
     image: ghcr.io/open-webui/open-webui:v0.9.6
     container_name: open-webui
@@ -32,19 +8,21 @@ services:
     volumes:
       - ./open-webui-data:/app/backend/data
     environment:
-      OLLAMA_BASE_URL: "http://ollama:11434"
+      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
       WEBUI_AUTH: "false"
       HF_HUB_OFFLINE: "1"
       RAG_EMBEDDING_ENGINE: "ollama"
-      RAG_OLLAMA_BASE_URL: "http://ollama:11434"
-      RAG_EMBEDDING_MODEL: "nomic-embed-text"
+      RAG_OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
+      RAG_EMBEDDING_MODEL: "qwen3-embedding:0.6b"
       ENABLE_WEB_SEARCH: "true"
       WEB_SEARCH_ENGINE: "searxng"
       WEB_SEARCH_RESULT_COUNT: "5"
       WEB_SEARCH_CONCURRENT_REQUESTS: "2"
       SEARXNG_QUERY_URL: "http://searxng:8080/search?q=<query>"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
-      - ollama
+      - searxng
     restart: unless-stopped
 
   searxng:

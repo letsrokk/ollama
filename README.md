@@ -1,26 +1,29 @@
-# Ollama Compose Stack
+# Ollama and Web Search Stack
 
-Local Docker Compose setup for running Ollama with Open WebUI and SearXNG
-search support.
+Local setup for running Open WebUI with SearXNG search support and either a
+native or Docker-hosted Ollama server.
 
 ## Services
 
-- `ollama`: Ollama server exposed on `http://localhost:11434`
-- `open-webui`: Open WebUI exposed on `http://localhost/`
+- `open-webui`: Open WebUI exposed on `http://localhost:3000/`
 - `searxng`: SearXNG server exposed on `http://localhost:8080`
 - `valkey`: backing store for SearXNG
+- `ollama`: optional Docker-hosted Ollama server exposed on
+  `http://localhost:11434`
 
-Open WebUI connects to Ollama through the Compose network at
-`http://ollama:11434`. Authentication is disabled for this local deployment.
-Hugging Face offline mode is enabled so the UI does not block startup on
-external model downloads. Open WebUI RAG embeddings are configured to use
-Ollama with `nomic-embed-text`.
+The default `docker-compose.yaml` contains Open WebUI, SearXNG, and Valkey.
+Open WebUI connects to Ollama on the host through
+`http://host.docker.internal:11434`, which supports native Ollama on macOS.
+Set `OLLAMA_BASE_URL` to override that endpoint. Authentication is disabled
+for this local deployment. Hugging Face offline mode is enabled so the UI does
+not block startup on external model downloads. Open WebUI RAG embeddings are
+configured to use Ollama with `qwen3-embedding:0.6b`.
 Open WebUI web search is enabled through SearXNG at
 `http://searxng:8080/search?q=<query>`, returning 5 results with 2 concurrent
 requests.
 
 HTTPS is expected to terminate on the separate Caddy host. Point that Caddy
-reverse proxy at `http://<this-host>:80` and keep WebSocket proxying enabled.
+reverse proxy at `http://<this-host>:3000` and keep WebSocket proxying enabled.
 
 ## Setup
 
@@ -39,47 +42,86 @@ OLLAMA_API_KEY=change-this-to-a-long-random-string
 
 The `.env` file is ignored by git and should not be committed.
 
-## Run
+## Run with Native Ollama on macOS
 
-Start the stack:
+Ensure the native Ollama application or server is running, then start Open
+WebUI and the search services:
 
 ```bash
 docker compose up -d
 ```
 
-Check the resolved configuration:
+Check or stop the stack:
 
 ```bash
 docker compose config
+docker compose down
 ```
 
-Stop the stack:
+## Run with Docker Ollama
+
+Start Ollama from its dedicated Compose file, then start Open WebUI and the
+search services:
 
 ```bash
+docker compose -f docker-compose-ollama.yaml up -d
+docker compose up -d
+```
+
+Check or stop both stacks:
+
+```bash
+docker compose -f docker-compose-ollama.yaml config
+docker compose config
 docker compose down
+docker compose -f docker-compose-ollama.yaml down
 ```
 
 ## Pull Models
 
-Pull models from the included list:
+Pull models from the platform-specific default list:
 
 ```bash
-./pull-model.sh models.list
+./pull-models.sh
 ```
 
-Pull a single model:
+On Apple Silicon macOS, the default is `models-mlx.list`. All other platforms
+use `models-gguf.list`. The Apple Silicon list prefers official MLX variants
+and uses regular Ollama variants for models without an MLX version.
+
+On macOS, the script uses the native `ollama` binary when it is available and
+falls back to the Docker Compose `ollama` service otherwise. Other platforms
+use Docker Compose by default. Model-list selection is based on the platform
+and is independent of backend selection. Docker pulls target
+`docker-compose-ollama.yaml`.
+
+Force a backend:
 
 ```bash
-./pull-model.sh qwen3:8b
+./pull-models.sh --native
+./pull-models.sh --docker
 ```
 
-Pull multiple models:
+Pull models from a specific list:
 
 ```bash
-./pull-model.sh qwen3:8b,mistral:7b
+./pull-models.sh models-gguf.list
+./pull-models.sh --native models-mlx.list
 ```
 
-Model list files support blank lines and `#` comments.
+Pull a single model or multiple comma-separated models:
+
+```bash
+./pull-models.sh qwen3.8:27b
+./pull-models.sh qwen3.8:27b,gemma4:12b
+```
+
+Both included lists contain `qwen3-embedding:0.6b` and
+`qwen3-embedding:8b`; Open WebUI uses the 0.6B model by default. Model list
+files support blank lines and `#` comments. Run `./pull-models.sh --help` for
+the complete command syntax. During a pull, the script reports the selected
+backend and model source, prints each model as `[current/total]`, and finishes
+with the number of models pulled successfully.
 
 ## Local Data
 
