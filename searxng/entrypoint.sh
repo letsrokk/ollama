@@ -12,10 +12,21 @@ limiter_template=${SEARXNG_LIMITER_TEMPLATE:-/etc/searxng/limiter.toml}
 python_bin=${SEARXNG_PYTHON:-/usr/local/searxng/.venv/bin/python}
 upstream_entrypoint=${SEARXNG_UPSTREAM_ENTRYPOINT:-/usr/local/searxng/entrypoint.sh}
 
+if [ ! -f "$settings_template" ]; then
+    echo "SearXNG settings configuration not found: $settings_template" >&2
+    exit 66
+fi
+
+if [ ! -f "$limiter_template" ]; then
+    echo "SearXNG limiter configuration not found: $limiter_template" >&2
+    exit 66
+fi
+
 "$python_bin" - "$settings_template" "$rendered_settings" <<'PY'
 import json
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 placeholder = "__BRAVE_SEARCH_API_KEY_JSON__"
@@ -26,14 +37,26 @@ if text.count(placeholder) != 1:
     print(f"expected exactly one {placeholder} placeholder", file=sys.stderr)
     raise SystemExit(65)
 rendered = text.replace(placeholder, json.dumps(os.environ["BRAVE_SEARCH_API_KEY"]))
-target.write_text(rendered, encoding="utf-8")
-target.chmod(0o600)
-PY
 
-if [ ! -f "$limiter_template" ]; then
-    echo "SearXNG limiter configuration not found: $limiter_template" >&2
-    exit 66
-fi
+fd, temporary_name = tempfile.mkstemp(prefix=f".{target.name}.", dir=target.parent)
+try:
+    os.fchmod(fd, 0o600)
+    stream = os.fdopen(fd, "w", encoding="utf-8")
+    fd = -1
+    with stream:
+        stream.write(rendered)
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary_name, target)
+except BaseException:
+    if fd >= 0:
+        os.close(fd)
+    try:
+        os.unlink(temporary_name)
+    except FileNotFoundError:
+        pass
+    raise
+PY
 
 rendered_limiter=$(dirname "$rendered_settings")/limiter.toml
 cp "$limiter_template" "$rendered_limiter"

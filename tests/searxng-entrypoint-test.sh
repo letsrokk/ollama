@@ -20,6 +20,7 @@ printf '%s\n' "$SEARXNG_SETTINGS_PATH" >"$CAPTURE_PATH"
 printf '%s\n' "$@" >"$CAPTURE_ARGS"
 SH
 chmod +x "$fake_upstream"
+printf '%s\n' '[botdetection.ip_limit]' 'filter_link_local = false' >"$limiter_template"
 
 run_wrapper() {
     CAPTURE_PATH=$capture_path \
@@ -39,6 +40,13 @@ set -e
 [ "$status" -eq 64 ]
 grep -q 'BRAVE_SEARCH_API_KEY' "$test_dir/missing.err"
 
+set +e
+BRAVE_SEARCH_API_KEY=test run_wrapper >"$test_dir/missing-settings.out" 2>"$test_dir/missing-settings.err"
+status=$?
+set -e
+[ "$status" -eq 66 ]
+grep -q 'settings.*not found' "$test_dir/missing-settings.err"
+
 printf '%s\n' 'api_key: no-placeholder' >"$template"
 set +e
 BRAVE_SEARCH_API_KEY=test run_wrapper >"$test_dir/zero.out" 2>"$test_dir/zero.err"
@@ -54,9 +62,22 @@ set -e
 [ "$status" -eq 65 ]
 
 printf '%s\n' 'api_key: __BRAVE_SEARCH_API_KEY_JSON__' >"$template"
+rm "$limiter_template"
+set +e
+BRAVE_SEARCH_API_KEY=test run_wrapper >"$test_dir/missing-limiter.out" 2>"$test_dir/missing-limiter.err"
+status=$?
+set -e
+[ "$status" -eq 66 ]
+grep -q 'limiter.*not found' "$test_dir/missing-limiter.err"
 printf '%s\n' '[botdetection.ip_limit]' 'filter_link_local = false' >"$limiter_template"
+
+victim=$test_dir/symlink-victim
+printf '%s\n' 'must remain unchanged' >"$victim"
+ln -s "$victim" "$rendered"
 special_key='quote"and\backslash&dollar$'
 BRAVE_SEARCH_API_KEY=$special_key run_wrapper alpha 'two words'
+[ "$(cat "$victim")" = 'must remain unchanged' ]
+[ ! -L "$rendered" ]
 
 python3 - "$rendered" "$special_key" <<'PY'
 import json

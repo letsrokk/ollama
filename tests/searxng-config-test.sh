@@ -15,8 +15,9 @@ trap cleanup EXIT HUP INT TERM
 docker run -d \
     --name "$container_name" \
     --publish 127.0.0.1::8080 \
-    --volume "$repo_root/searxng:/etc/searxng:rw" \
+    --volume "$repo_root/searxng:/etc/searxng:ro" \
     --env "BRAVE_SEARCH_API_KEY=$test_key" \
+    --env FORCE_OWNERSHIP=false \
     --env SEARXNG_BASE_URL=http://localhost:8080/ \
     --env SEARXNG_SECRET=verification-only \
     --entrypoint /etc/searxng/entrypoint.sh \

@@ -60,9 +60,12 @@ docker compose up -d
 Check or stop the stack:
 
 ```bash
-docker compose config
+docker compose config --quiet
 docker compose down
 ```
+
+Use `docker compose config --quiet` for validation. The non-quiet form renders
+environment values, including `BRAVE_SEARCH_API_KEY`, to the terminal.
 
 ## Run with Docker Ollama
 
@@ -77,10 +80,21 @@ docker compose up -d
 Check or stop both stacks:
 
 ```bash
-docker compose -f docker-compose-ollama.yaml config
-docker compose config
+docker compose -f docker-compose-ollama.yaml config --quiet
+docker compose config --quiet
 docker compose down
 docker compose -f docker-compose-ollama.yaml down
+```
+
+## Verify SearXNG Configuration
+
+The regression checks require Docker, Docker Compose, `curl`, `jq`, and
+Python 3. They use only sentinel credentials and do not consume Brave API
+quota:
+
+```bash
+tests/searxng-entrypoint-test.sh
+tests/searxng-config-test.sh
 ```
 
 ## Pull Models
