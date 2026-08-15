@@ -28,7 +28,7 @@ start_ollama() {
 
   while (( attempt <= MAX_OPEN_ATTEMPTS )); do
     log "Starting Ollama (attempt ${attempt}/${MAX_OPEN_ATTEMPTS})."
-    if "$OPEN_BIN" -a "Ollama"; then
+    if "$OPEN_BIN" -j -a "Ollama"; then
       log "Ollama launch request accepted."
       return 0
     fi
