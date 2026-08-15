@@ -8,6 +8,8 @@ trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
 
 template=$test_dir/settings.yml
 rendered=$test_dir/rendered.yml
+limiter_template=$test_dir/input-limiter.toml
+rendered_limiter=$test_dir/limiter.toml
 capture_path=$test_dir/captured-path
 capture_args=$test_dir/captured-args
 fake_upstream=$test_dir/upstream.sh
@@ -24,6 +26,7 @@ run_wrapper() {
     CAPTURE_ARGS=$capture_args \
     SEARXNG_SETTINGS_TEMPLATE=$template \
     SEARXNG_RENDERED_SETTINGS_PATH=$rendered \
+    SEARXNG_LIMITER_TEMPLATE=$limiter_template \
     SEARXNG_PYTHON=python3 \
     SEARXNG_UPSTREAM_ENTRYPOINT=$fake_upstream \
     "$wrapper" "$@"
@@ -51,6 +54,7 @@ set -e
 [ "$status" -eq 65 ]
 
 printf '%s\n' 'api_key: __BRAVE_SEARCH_API_KEY_JSON__' >"$template"
+printf '%s\n' '[botdetection.ip_limit]' 'filter_link_local = false' >"$limiter_template"
 special_key='quote"and\backslash&dollar$'
 BRAVE_SEARCH_API_KEY=$special_key run_wrapper alpha 'two words'
 
@@ -64,6 +68,13 @@ assert json.loads(scalar) == sys.argv[2]
 assert oct(Path(sys.argv[1]).stat().st_mode & 0o777) == "0o600"
 PY
 
+cmp "$limiter_template" "$rendered_limiter"
+python3 - "$rendered_limiter" <<'PY'
+import sys
+from pathlib import Path
+
+assert oct(Path(sys.argv[1]).stat().st_mode & 0o777) == "0o600"
+PY
 [ "$(cat "$capture_path")" = "$rendered" ]
 [ "$(sed -n '1p' "$capture_args")" = 'alpha' ]
 [ "$(sed -n '2p' "$capture_args")" = 'two words' ]
