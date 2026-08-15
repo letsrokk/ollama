@@ -33,11 +33,10 @@ Create a local `.env` file from the example:
 cp .env.example .env
 ```
 
-Then replace the placeholder values:
+Then generate a random SearXNG secret and replace the placeholder:
 
-```env
-SEARXNG_SECRET=change-this-to-a-long-random-string
-OLLAMA_API_KEY=change-this-to-a-long-random-string
+```bash
+sed -i '' "s/^SEARXNG_SECRET=.*/SEARXNG_SECRET=$(openssl rand -hex 32)/" .env
 ```
 
 The `.env` file is ignored by git and should not be committed.
