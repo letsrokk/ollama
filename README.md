@@ -39,7 +39,14 @@ Then generate a random SearXNG secret and replace the placeholder:
 sed -i '' "s/^SEARXNG_SECRET=.*/SEARXNG_SECRET=$(openssl rand -hex 32)/" .env
 ```
 
-The `.env` file is ignored by git and should not be committed.
+Create a [Brave Search API](https://brave.com/search/api/) key, set a usage
+limit in the Brave dashboard, and replace the `BRAVE_SEARCH_API_KEY`
+placeholder in `.env`. Current Brave pricing includes $5 in recurring monthly
+credits, which covers approximately 1,000 Search requests; provider pricing
+and terms can change.
+
+The stack requires the Brave key before SearXNG starts. The `.env` file is
+ignored by git and should not be committed.
 
 ## Run with Native Ollama on macOS
 

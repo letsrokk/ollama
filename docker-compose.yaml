@@ -28,6 +28,7 @@ services:
   searxng:
     image: searxng/searxng:2026.5.29-780ee3256
     container_name: searxng
+    entrypoint: ["/etc/searxng/entrypoint.sh"]
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -36,6 +37,7 @@ services:
     environment:
       SEARXNG_BASE_URL: http://localhost:8080/
       SEARXNG_SECRET: "${SEARXNG_SECRET}"
+      BRAVE_SEARCH_API_KEY: "${BRAVE_SEARCH_API_KEY:?set BRAVE_SEARCH_API_KEY in .env}"
     depends_on:
       - valkey
 

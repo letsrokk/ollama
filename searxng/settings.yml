@@ -2,12 +2,8 @@ use_default_settings:
   engines:
     keep_only:
       # general search
+      - braveapi
       - google
-      - bing
-      - duckduckgo
-      # news
-      - google news
-      - bing news
       # local businesses
       - openstreetmap
 
@@ -19,6 +15,13 @@ search:
   safe_search: 0
   autocomplete: ""
   default_lang: "en"
+  suspended_times:
+    SearxEngineAccessDenied: 3600
+    SearxEngineCaptcha: 43200
+    SearxEngineTooManyRequests: 1800
+    cf_SearxEngineCaptcha: 1296000
+    cf_SearxEngineAccessDenied: 86400
+    recaptcha_SearxEngineCaptcha: 604800
   formats:
     - json
 
@@ -35,10 +38,18 @@ outgoing:
   pool_connections: 100
   pool_maxsize: 20
   enable_http2: true
-  retries: 1
+  retries: 0
 
 valkey:
   url: valkey://valkey:6379/0
+
+engines:
+  - name: braveapi
+    engine: braveapi
+    shortcut: brapi
+    api_key: __BRAVE_SEARCH_API_KEY_JSON__
+    inactive: false
+    disabled: false
 
 plugins:
   searx.plugins.tracker_url_remover.SXNGPlugin: 
@@ -60,4 +71,3 @@ hostnames:
   low_priority:
     - '(.*\.)?quora\.com$'
     - '(.*\.)?medium\.com$'
-
