@@ -86,17 +86,6 @@ docker compose down
 docker compose -f docker-compose-ollama.yaml down
 ```
 
-## Verify SearXNG Configuration
-
-The regression checks require Docker, Docker Compose, `curl`, `jq`, and
-Python 3. They use only sentinel credentials and do not consume Brave API
-quota:
-
-```bash
-tests/searxng-entrypoint-test.sh
-tests/searxng-config-test.sh
-```
-
 ## Pull Models
 
 Pull models from the platform-specific default list:
