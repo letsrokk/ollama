@@ -9,7 +9,7 @@ readonly CUSTOM_LABEL="local.ollama.configured-launch"
 readonly OLLAMA_LOGIN_LABEL="com.ollama.ollama"
 readonly SCRIPT_DIR="${0:A:h}"
 readonly SOURCE_DIR="$SCRIPT_DIR/macos-launch-agent"
-readonly SOURCE_LAUNCH_SCRIPT="$SOURCE_DIR/launch.sh"
+readonly SOURCE_LAUNCH_SCRIPT="$SOURCE_DIR/ollama-custom-launcher.sh"
 readonly SOURCE_PLIST="$SOURCE_DIR/local.ollama.configured-launch.plist"
 
 readonly LAUNCHCTL_BIN="/bin/launchctl"
@@ -36,9 +36,11 @@ INSTALL_TRANSACTION_ACTIVE=0
 LOGIN_ITEM_TOUCHED=0
 PREVIOUS_AGENT_LOADED=0
 PREVIOUS_LAUNCH_SCRIPT_PRESENT=0
+PREVIOUS_LEGACY_LAUNCH_SCRIPT_PRESENT=0
 PREVIOUS_PLIST_PRESENT=0
 PREVIOUS_LOGIN_ITEM_DISABLED=0
 PREVIOUS_OLLAMA_RUNNING=0
+LEGACY_LAUNCH_SCRIPT_REMOVAL_STARTED=0
 PREVIOUS_CONTEXT_LENGTH=""
 PREVIOUS_FLASH_ATTENTION=""
 PREVIOUS_KV_CACHE_TYPE=""
@@ -232,14 +234,14 @@ enable_stock_login_item() {
 }
 
 prepare_staged_files() {
-  local staged_script="$STAGE_DIR/launch.sh"
+  local staged_script="$STAGE_DIR/ollama-custom-launcher.sh"
   local staged_plist="$STAGE_DIR/$CUSTOM_LABEL.plist"
 
   "$CP_BIN" "$SOURCE_LAUNCH_SCRIPT" "$staged_script"
   "$CP_BIN" "$SOURCE_PLIST" "$staged_plist"
 
-  "$PLUTIL_BIN" -remove ProgramArguments.1 "$staged_plist"
-  "$PLUTIL_BIN" -insert ProgramArguments.1 -string "$INSTALLED_LAUNCH_SCRIPT" "$staged_plist"
+  "$PLUTIL_BIN" -remove ProgramArguments.0 "$staged_plist"
+  "$PLUTIL_BIN" -insert ProgramArguments.0 -string "$INSTALLED_LAUNCH_SCRIPT" "$staged_plist"
   "$PLUTIL_BIN" -replace StandardOutPath -string "$LAUNCH_STDOUT" "$staged_plist"
   "$PLUTIL_BIN" -replace StandardErrorPath -string "$LAUNCH_STDERR" "$staged_plist"
 
@@ -251,6 +253,13 @@ capture_environment_value() {
   "$LAUNCHCTL_BIN" getenv "$1" 2>/dev/null || true
 }
 
+capture_managed_legacy_launcher() {
+  if [[ ! -L "$LEGACY_INSTALLED_LAUNCH_SCRIPT" ]] && is_managed_file "$LEGACY_INSTALLED_LAUNCH_SCRIPT"; then
+    PREVIOUS_LEGACY_LAUNCH_SCRIPT_PRESENT=1
+    "$CP_BIN" -p "$LEGACY_INSTALLED_LAUNCH_SCRIPT" "$STAGE_DIR/previous-legacy-launch.sh"
+  fi
+}
+
 capture_install_state() {
   local running_state
 
@@ -258,6 +267,7 @@ capture_install_state() {
     PREVIOUS_LAUNCH_SCRIPT_PRESENT=1
     "$CP_BIN" -p "$INSTALLED_LAUNCH_SCRIPT" "$STAGE_DIR/previous-launch.sh"
   fi
+  capture_managed_legacy_launcher
   if [[ -f "$INSTALLED_PLIST" ]]; then
     PREVIOUS_PLIST_PRESENT=1
     "$CP_BIN" -p "$INSTALLED_PLIST" "$STAGE_DIR/previous-agent.plist"
@@ -310,6 +320,13 @@ best_effort_stop_ollama() {
   done
 }
 
+restore_managed_legacy_launcher() {
+  if (( LEGACY_LAUNCH_SCRIPT_REMOVAL_STARTED && PREVIOUS_LEGACY_LAUNCH_SCRIPT_PRESENT )); then
+    "$INSTALL_BIN" -m 0755 "$STAGE_DIR/previous-legacy-launch.sh" "$LEGACY_INSTALLED_LAUNCH_SCRIPT" || \
+      warn "Could not restore legacy launcher $LEGACY_INSTALLED_LAUNCH_SCRIPT."
+  fi
+}
+
 rollback_install() {
   warn "Installation failed; restoring the previous Ollama launch configuration."
 
@@ -333,6 +350,8 @@ rollback_install() {
     "$RM_BIN" -f -- "$INSTALLED_PLIST" || \
       warn "Could not remove failed plist $INSTALLED_PLIST."
   fi
+
+  restore_managed_legacy_launcher
 
   restore_environment_value OLLAMA_CONTEXT_LENGTH "$PREVIOUS_CONTEXT_LENGTH"
   restore_environment_value OLLAMA_FLASH_ATTENTION "$PREVIOUS_FLASH_ATTENTION"
@@ -405,6 +424,15 @@ wait_for_ollama_running() {
   return 1
 }
 
+remove_managed_legacy_launcher() {
+  if (( PREVIOUS_LEGACY_LAUNCH_SCRIPT_PRESENT )); then
+    log "Removing managed legacy launcher $LEGACY_INSTALLED_LAUNCH_SCRIPT."
+    LEGACY_LAUNCH_SCRIPT_REMOVAL_STARTED=1
+    "$RM_BIN" -f -- "$LEGACY_INSTALLED_LAUNCH_SCRIPT" || \
+      die "Failed to remove legacy launcher $LEGACY_INSTALLED_LAUNCH_SCRIPT."
+  fi
+}
+
 install_agent() {
   [[ -d "/Applications/Ollama.app" ]] || die "Ollama.app was not found under /Applications."
   [[ -f "$SOURCE_LAUNCH_SCRIPT" ]] || die "Missing source launcher: $SOURCE_LAUNCH_SCRIPT"
@@ -421,7 +449,7 @@ install_agent() {
   "$MKDIR_BIN" -p "$OLLAMA_DIR" "$LAUNCH_LOG_DIR" "$USER_LAUNCH_AGENTS_DIR"
   unload_custom_agent
 
-  "$INSTALL_BIN" -m 0755 "$STAGE_DIR/launch.sh" "$INSTALLED_LAUNCH_SCRIPT"
+  "$INSTALL_BIN" -m 0755 "$STAGE_DIR/ollama-custom-launcher.sh" "$INSTALLED_LAUNCH_SCRIPT"
   "$INSTALL_BIN" -m 0644 "$STAGE_DIR/$CUSTOM_LABEL.plist" "$INSTALLED_PLIST"
 
   if (( DISABLE_LOGIN_ITEM )); then
@@ -436,6 +464,7 @@ install_agent() {
   custom_agent_is_loaded || die "$CUSTOM_LABEL was not loaded after bootstrap."
   wait_for_environment || die "$CUSTOM_LABEL loaded, but its Ollama environment did not become ready. Check $LAUNCH_STDERR."
   wait_for_ollama_running || die "$CUSTOM_LABEL loaded, but the Ollama application did not start. Check $LAUNCH_STDERR."
+  remove_managed_legacy_launcher
 
   INSTALL_TRANSACTION_ACTIVE=0
 
@@ -469,6 +498,9 @@ uninstall_agent() {
   if [[ -f "$INSTALLED_LAUNCH_SCRIPT" ]]; then
     "$RM_BIN" -f -- "$INSTALLED_LAUNCH_SCRIPT"
   fi
+  if [[ ! -L "$LEGACY_INSTALLED_LAUNCH_SCRIPT" ]] && is_managed_file "$LEGACY_INSTALLED_LAUNCH_SCRIPT"; then
+    "$RM_BIN" -f -- "$LEGACY_INSTALLED_LAUNCH_SCRIPT"
+  fi
   if [[ -f "$INSTALLED_PLIST" ]]; then
     "$RM_BIN" -f -- "$INSTALLED_PLIST"
   fi
@@ -494,7 +526,8 @@ readonly LAUNCH_DOMAIN="gui/$USER_ID"
 readonly OLLAMA_DIR="$HOME/.ollama"
 readonly LAUNCH_LOG_DIR="$OLLAMA_DIR/logs"
 readonly USER_LAUNCH_AGENTS_DIR="$HOME/Library/LaunchAgents"
-readonly INSTALLED_LAUNCH_SCRIPT="$OLLAMA_DIR/launch.sh"
+readonly INSTALLED_LAUNCH_SCRIPT="$OLLAMA_DIR/ollama-custom-launcher.sh"
+readonly LEGACY_INSTALLED_LAUNCH_SCRIPT="$OLLAMA_DIR/launch.sh"
 readonly INSTALLED_PLIST="$USER_LAUNCH_AGENTS_DIR/$CUSTOM_LABEL.plist"
 readonly LAUNCH_STDOUT="$LAUNCH_LOG_DIR/launch-agent.stdout.log"
 readonly LAUNCH_STDERR="$LAUNCH_LOG_DIR/launch-agent.stderr.log"

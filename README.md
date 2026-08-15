@@ -95,11 +95,15 @@ starts it with the configured environment and no restart is needed.
 Installed files and launcher logs are located at:
 
 ```text
-~/.ollama/launch.sh
+~/.ollama/ollama-custom-launcher.sh
 ~/.ollama/logs/launch-agent.stdout.log
 ~/.ollama/logs/launch-agent.stderr.log
 ~/Library/LaunchAgents/local.ollama.configured-launch.plist
 ```
+
+Because the LaunchAgent executes `ollama-custom-launcher.sh` directly, macOS
+shows that name instead of the generic `zsh` executable under Background
+Activity.
 
 Verify the service and environment:
 

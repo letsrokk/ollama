@@ -16,7 +16,6 @@
 
   <key>ProgramArguments</key>
   <array>
-    <string>/bin/zsh</string>
     <string>__OLLAMA_LAUNCH_SCRIPT__</string>
   </array>
 
