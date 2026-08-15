@@ -4,4 +4,5 @@
 
 ollama-data/
 open-webui-data/
+.worktrees/
 docs/
